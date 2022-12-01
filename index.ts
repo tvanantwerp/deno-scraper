@@ -99,14 +99,19 @@ async function getModule(url: string | URL) {
 				authorPage,
 				"text/html",
 			);
-			moduleData.author = authorDocument?.querySelector(".h2")?.textContent
-				.trim() || authorDocument?.querySelector(".p-name")?.textContent.trim();
-			moduleData.image = authorDocument
-				?.querySelector("img.flex-shrink-0:nth-child(1)")
-				?.getAttribute("src") ||
-				authorDocument?.querySelector("img.avatar.avatar-user.width-full")
-					?.getAttribute("src") ||
-				undefined;
+      const orgAuthor = authorDocument?.querySelector(".h2")?.textContent
+      .trim();
+      const individualAuthor = authorDocument?.querySelector(".p-name")?.textContent.trim();
+      console.log(orgAuthor, individualAuthor);
+			moduleData.author = orgAuthor || individualAuthor;
+
+      const orgImg = authorDocument
+      ?.querySelector("img.flex-shrink-0:nth-child(1)")
+      ?.getAttribute("src");
+      const individualImg = authorDocument?.querySelector("img.avatar.avatar-user")
+      ?.getAttribute("src")
+      console.log(orgImg, individualImg);
+			moduleData.image = orgImg || individualImg || undefined;
 		}
 	}
 	return moduleData;
