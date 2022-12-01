@@ -14,7 +14,7 @@ interface Entry {
 async function getModules() {
 	const BASE_URL = "https://deno.land/x?page=";
 
-	const MAX_PAGES = 5;
+	const MAX_PAGES = 3;
 
 	const entries: Entry[] = [];
 
@@ -27,7 +27,7 @@ async function getModules() {
 			const modules = document.getElementsByTagName("li");
 
 			for (const module of modules) {
-				const entry: Entry = {};
+				const entry: Entry = {tags: []};
 				const moduleUrl =
 					module.getElementsByTagName("a")[0].getAttribute("href")?.split(
 						"?",
@@ -83,17 +83,11 @@ async function getModule(url: string | URL) {
 
 	if (repo) {
 		moduleData.repo = repo;
-		const repoPage = await fetch(repo).then((res) => res.text());
-		const repoDocument = new DOMParser().parseFromString(
-			repoPage,
-			"text/html",
-		);
-		const authorUrl = repoDocument
-			?.querySelector('a[rel="author"]')
-			?.getAttribute("href");
+    const repoUrl = new URL(repo);
+    const authorUrl = `${repoUrl.origin}/${repoUrl.pathname.split("/")[1]}`;
 
 		if (authorUrl) {
-			const authorPage = await fetch(new URL(`https://github.com/${authorUrl}`))
+			const authorPage = await fetch(new URL(authorUrl))
 				.then((res) => res.text());
 			const authorDocument = new DOMParser().parseFromString(
 				authorPage,
@@ -102,7 +96,6 @@ async function getModule(url: string | URL) {
       const orgAuthor = authorDocument?.querySelector(".h2")?.textContent
       .trim();
       const individualAuthor = authorDocument?.querySelector(".p-name")?.textContent.trim();
-      console.log(orgAuthor, individualAuthor);
 			moduleData.author = orgAuthor || individualAuthor;
 
       const orgImg = authorDocument
@@ -110,7 +103,6 @@ async function getModule(url: string | URL) {
       ?.getAttribute("src");
       const individualImg = authorDocument?.querySelector("img.avatar.avatar-user")
       ?.getAttribute("src")
-      console.log(orgImg, individualImg);
 			moduleData.image = orgImg || individualImg || undefined;
 		}
 	}
