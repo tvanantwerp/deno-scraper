@@ -20,7 +20,8 @@ async function getModules() {
 
 	for (let page = 1; page <= MAX_PAGES; page++) {
 		const url = `${BASE_URL}${page}`;
-		const pageContents = await fetch(url).then((res) => res.text());
+		const pageContents = await fetch(url).then((res) => res.text()).then();
+		await sleep(1000);
 		const document = new DOMParser().parseFromString(pageContents, 'text/html');
 
 		if (document) {
@@ -43,6 +44,7 @@ async function getModules() {
 				let moduleData;
 				if (moduleUrl) {
 					moduleData = await getModule(moduleUrl);
+					await sleep(1000);
 				}
 				entries.push({ ...entry, ...moduleData });
 			}
@@ -110,6 +112,12 @@ async function getModule(url: string | URL) {
 		}
 	}
 	return moduleData;
+}
+
+async function sleep(milliseconds: number) {
+	return new Promise((resolve) => {
+		setTimeout(resolve, milliseconds);
+	});
 }
 
 getModules();
