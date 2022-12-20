@@ -4,61 +4,77 @@ interface Entry {
 	name?: string;
 	author?: string;
 	repo?: string;
-	package?: string;
 	href?: string;
 	description?: string;
-	image?: string;
-	tags?: string[];
 }
 
 async function getModules() {
+	// Here we define the base URL we want to use, the number
+	// of pages we want to fetch, and we create an empty array
+	// to store our scraped data.
 	const BASE_URL = 'https://deno.land/x?page=';
-
 	const MAX_PAGES = 3;
-
 	const entries: Entry[] = [];
 
+	// We'll loop for the number of pages we want to fetch,
+	// and parse the contents once available
 	for (let page = 1; page <= MAX_PAGES; page++) {
 		const url = `${BASE_URL}${page}`;
-		const pageContents = await fetch(url).then((res) => res.text()).then();
+		const pageContents = await fetch(url).then((res) => res.text());
+		// Remember, be kind to the website and wait a second!
 		await sleep(1000);
+
+		// Use the deno_dom module to parse the HTML
 		const document = new DOMParser().parseFromString(pageContents, 'text/html');
 
 		if (document) {
+			// Conveniently, the modules are all the only <li> elements
+			// on the page. If you're scraping different data from a
+			// different website, you'll want to use whatever selectors
+			// make sense for the data you're trying to scrape.
 			const modules = document.getElementsByTagName('li');
 
 			for (const module of modules) {
-				const entry: Entry = { tags: [] };
-				const moduleUrl =
-					module.getElementsByTagName('a')[0].getAttribute('href')?.split(
-						'?',
-					)[0];
-
+				const entry: Entry = {};
+				// Here we get the module's name and a short description.
 				entry.name = module.querySelector(
 					'.text-primary.font-semibold',
 				)?.textContent;
-				entry.description = module.querySelector(
-					'.col-span-2.text-gray-400',
-				)?.textContent;
+				entry.description = module.querySelector('.col-span-2.text-gray-400')
+					?.textContent;
 
+				// Here we get the path to this module's page.
+				// The Deno site uses relative paths, so we'll
+				// need to add the base URL to the path in getModule.
+				const path =
+					module.getElementsByTagName('a')[0].getAttribute('href')?.split(
+						'?',
+					)[0];
+				entry.href = `https://deno.land${path}`;
+
+				// We've got all the data we can from just the listing.
+				// Time to fetch the individual module page and add
+				// data from there.
 				let moduleData;
-				if (moduleUrl) {
-					moduleData = await getModule(moduleUrl);
+				if (path) {
+					moduleData = await getModule(path);
 					await sleep(1000);
 				}
+
+				// Once we've got everything, push the data to our array.
 				entries.push({ ...entry, ...moduleData });
 			}
 		}
 	}
+
 	await Deno.writeTextFile('./output.json', JSON.stringify(entries, null, 2));
 }
 
-async function getModule(url: string | URL) {
-	const modulePage = await fetch(new URL(`https://deno.land${url}`), {
+async function getModule(path: string | URL) {
+	const modulePage = await fetch(new URL(`https://deno.land${path}`), {
 		redirect: 'follow',
 		headers: {
-			'Accept':
-				'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+			'Accept': 'text/html',
 		},
 	}).then(
 		(res) => {
@@ -71,13 +87,7 @@ async function getModule(url: string | URL) {
 		'text/html',
 	);
 
-	const moduleData: Record<string, string | undefined> = {};
-
-	const packageUrl =
-		moduleDocument?.querySelector('a.inline-block:nth-child(3)')
-			?.getAttribute('href')?.split('@')[0] ?? undefined;
-	moduleData.href = `https://deno.land${packageUrl}`;
-	moduleData.package = `https://deno.land${packageUrl}`;
+	const moduleData: Entry = {};
 
 	const repo = moduleDocument
 		?.querySelector('a.link.truncate')
@@ -85,31 +95,8 @@ async function getModule(url: string | URL) {
 
 	if (repo) {
 		moduleData.repo = repo;
-		const repoUrl = new URL(repo);
-		const authorUrl = `${repoUrl.origin}/${repoUrl.pathname.split('/')[1]}`;
-
-		if (authorUrl) {
-			const authorPage = await fetch(new URL(authorUrl))
-				.then((res) => res.text());
-			const authorDocument = new DOMParser().parseFromString(
-				authorPage,
-				'text/html',
-			);
-			const orgAuthor = authorDocument?.querySelector('.h2')?.textContent
-				.trim();
-			const individualAuthor = authorDocument?.querySelector('.p-name')
-				?.textContent.trim();
-			moduleData.author = orgAuthor || individualAuthor;
-
-			const orgImg = authorDocument
-				?.querySelector('img.flex-shrink-0:nth-child(1)')
-				?.getAttribute('src');
-			const individualImg = authorDocument?.querySelector(
-				'img.avatar.avatar-user',
-			)
-				?.getAttribute('src');
-			moduleData.image = orgImg || individualImg || undefined;
-		}
+		moduleData.author =
+			repo.match(/https?:\/\/(?:www\.)?github\.com\/(.*)\//)![1];
 	}
 	return moduleData;
 }
